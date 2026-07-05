@@ -155,7 +155,9 @@ def register_routes(app):
     def security_headers(response):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "no-referrer"
+        # Flask-WTF requires a same-origin Referer for HTTPS form submissions.
+        # Keep it for this origin while preventing referrer leakage to other sites.
+        response.headers["Referrer-Policy"] = "same-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; "

@@ -36,6 +36,7 @@ def test_login_and_admin_page():
         response = login(client)
         assert response.status_code == 302
         assert client.get("/admin").status_code == 200
+        assert client.get("/login").headers["Referrer-Policy"] == "same-origin"
     finally:
         os.unlink(path)
 
@@ -85,4 +86,3 @@ def test_create_vehicle_rejects_invalid_secret():
             assert Vehicle.query.count() == 0
     finally:
         os.unlink(path)
-
