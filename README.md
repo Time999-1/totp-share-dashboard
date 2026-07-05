@@ -20,52 +20,77 @@
 
 > 分享链接相当于第二重验证凭据。仅用于你有权管理的共享账号，不要公开传播。
 
-## 在 1Panel 中部署
+## 推荐部署：SSH 启动 + 1Panel 反向代理
 
-### 1. 准备项目
+以下方式已经实际验证。SSH 负责启动 Docker Compose，1Panel 只负责域名、反向代理和 HTTPS。不要再在 1Panel 中重复创建同一个 Compose 编排。
 
-把整个项目上传到服务器，例如：
+### 1. 检查环境
 
-```text
-/opt/1panel/apps/totp-share-dashboard
+```bash
+git --version
+docker --version
+docker compose version
 ```
 
-也可以将项目推送到自己的 GitHub/Gitee 仓库，然后在服务器拉取。
+### 2. 拉取项目
 
-### 2. 创建环境文件
+```bash
+cd /opt
+git clone https://github.com/Time999-1/totp-share-dashboard.git
+cd totp-share-dashboard
+```
 
-复制 `.env.example` 为 `.env`，修改以下四项：
+如果目录已经存在，不要再次克隆，使用：
+
+```bash
+cd /opt/totp-share-dashboard
+git pull
+```
+
+### 3. 创建安全配置
+
+复制环境文件，并直接生成两个不会显示在终端里的随机密钥：
+
+```bash
+cp .env.example .env
+sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
+sed -i "s/^APP_ENCRYPTION_KEY=.*/APP_ENCRYPTION_KEY=$(openssl rand -hex 32)/" .env
+nano .env
+```
+
+在编辑器中只需设置管理员账号和强密码，并确认正式部署使用安全 Cookie：
 
 ```env
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=你的强密码
-SESSION_SECRET=至少32位随机字符串
-APP_ENCRYPTION_KEY=至少32位随机字符串
+COOKIE_SECURE=true
 ```
 
-可在服务器生成随机字符串：
+Nano 保存方法：按 `Ctrl+O`、回车，再按 `Ctrl+X`。不要截图、发送或提交 `.env`。
+
+`APP_ENCRYPTION_KEY` 部署后不要修改，否则数据库里的 2FA 密钥将无法解密。
+
+### 4. 启动并检查
 
 ```bash
-openssl rand -hex 32
+docker compose up -d --build
+docker compose ps
+curl http://127.0.0.1:8787/health
 ```
 
-`APP_ENCRYPTION_KEY` 部署后不要随意修改，否则数据库里的 2FA 密钥将无法解密。
-
-### 3. 创建 Compose 编排
-
-进入 1Panel：
+健康检查应返回：
 
 ```text
-容器 → 编排 → 创建编排
+{"status":"ok"}
 ```
 
-选择项目目录中的 `docker-compose.yml`，然后启动。服务默认只监听服务器本机：
+服务只监听服务器本机：
 
 ```text
 127.0.0.1:8787
 ```
 
-### 4. 创建网站和反向代理
+### 5. 在 1Panel 创建反向代理
 
 进入：
 
@@ -81,7 +106,7 @@ http://127.0.0.1:8787
 
 绑定自己的域名并申请 HTTPS 证书。必须使用 HTTPS，否则浏览器的复制功能和 Cookie 安全策略可能无法正常工作。
 
-### 5. 登录
+### 6. 登录
 
 打开：
 
@@ -90,6 +115,10 @@ https://你的域名/login
 ```
 
 使用 `.env` 中设置的管理员账号和密码登录。
+
+### 可选：完全使用 1Panel 编排
+
+也可以不执行 `docker compose up -d --build`，改为在 1Panel 中选择项目目录的 `docker-compose.yml` 创建编排。两种启动方式二选一，不要重复部署。
 
 ## 更新项目
 
