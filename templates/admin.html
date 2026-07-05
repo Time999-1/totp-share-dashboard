@@ -11,8 +11,15 @@
     <header class="topbar">
       <div><h1>2FA 会员管理</h1><p>统一管理会员、验证码与专属分享链接</p></div>
       <div class="top-actions">
-        <a class="btn ghost" href="{{ url_for('manage_categories') }}">分类管理</a>
         <button class="btn primary" data-open-dialog="add-dialog">＋ 添加会员</button>
+        <details class="theme-switcher" data-theme-switcher>
+          <summary class="btn ghost theme-summary" aria-label="选择页面主题"><span data-theme-icon>◐</span><span class="theme-summary-text" data-theme-label>跟随系统</span></summary>
+          <div class="theme-menu" role="menu" aria-label="页面主题">
+            <button type="button" data-theme-value="light" role="menuitem"><span>☀</span>浅色<i>✓</i></button>
+            <button type="button" data-theme-value="dark" role="menuitem"><span>☾</span>深色<i>✓</i></button>
+            <button type="button" data-theme-value="system" role="menuitem"><span>▣</span>跟随系统<i>✓</i></button>
+          </div>
+        </details>
         <form method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn ghost" type="submit">退出</button>
@@ -51,24 +58,25 @@
     <section class="panel">
       <div class="panel-head"><h2>会员列表</h2><span class="muted">验证码每30秒自动更新</span></div>
       {% if rows %}
-      <div class="table-wrap">
-        <table class="member-table">
-          <thead><tr><th>名称</th><th>分类</th><th>编号</th><th>登录账号</th><th>验证码</th><th>剩余</th><th>会员状态</th><th>分享链接</th><th>操作</th></tr></thead>
-          <tbody>
+      <div class="member-grid">
           {% for row in rows %}
-            <tr data-code-row="{{ row.vehicle.id }}" data-member-row data-name="{{ row.vehicle.name|lower }}" data-code="{{ row.vehicle.code|lower }}" data-account="{{ row.vehicle.account|lower }}" data-category="{{ row.vehicle.category }}" data-status="{{ row.status.kind }}">
-              <td><strong>{{ row.vehicle.name }}</strong></td>
-              <td><span class="category-badge {{ row.category_color }}">{{ row.vehicle.category }}</span></td>
-              <td><span class="tag">{{ row.vehicle.code }}</span></td>
-              <td class="account-cell" title="{{ row.vehicle.account }}">{{ row.vehicle.account or '—' }}</td>
-              <td class="otp-cell" data-otp>—— ——</td>
-              <td><div class="countdown"><span data-remaining>--</span>秒</div></td>
-              <td><span class="member-status {{ row.status.kind }}">{{ row.status.label }}</span>{% if row.vehicle.expires_at %}<small class="expiry-date">{{ row.vehicle.expires_at }}</small>{% endif %}</td>
-              <td>
+            <article class="member-card" data-code-row="{{ row.vehicle.id }}" data-member-row data-name="{{ row.vehicle.name|lower }}" data-code="{{ row.vehicle.code|lower }}" data-account="{{ row.vehicle.account|lower }}" data-category="{{ row.vehicle.category }}" data-status="{{ row.status.kind }}">
+              <div class="member-card-head">
+                <strong>{{ row.vehicle.name }}</strong>
+                <span class="category-badge {{ row.category_color }}">{{ row.vehicle.category }}</span>
+              </div>
+              <div class="member-card-details">
+                <div class="member-field"><small>编号</small><span class="tag">{{ row.vehicle.code }}</span></div>
+                <div class="member-field otp-field"><small>验证码</small><span class="otp-cell" data-otp>—— ——</span></div>
+                <div class="member-field"><small>剩余时间</small><div class="countdown"><span data-remaining>--</span>秒</div></div>
+                <div class="member-field"><small>会员状态</small><span class="member-status {{ row.status.kind }}">{{ row.status.label }}</span>{% if row.vehicle.expires_at %}<span class="expiry-date">{{ row.vehicle.expires_at }}</span>{% endif %}</div>
+                <div class="member-field share-field"><small>分享链接</small><div>
                 <button class="btn small copy" data-copy="{{ row.share_url }}">复制链接</button>
                 <span class="status {{ 'on' if row.vehicle.enabled else 'off' }}">{{ '有效' if row.vehicle.enabled else '已停用' }}</span>
-              </td>
-              <td class="row-actions">
+                </div></div>
+              </div>
+              {% if row.vehicle.account %}<div class="member-account" title="{{ row.vehicle.account }}"><span>登录账号</span>{{ row.vehicle.account }}</div>{% endif %}
+              <div class="row-actions member-card-actions">
                 <a class="btn small ghost" href="{{ url_for('edit_vehicle', vehicle_id=row.vehicle.id) }}">编辑</a>
                 <form method="post" action="{{ url_for('toggle_vehicle', vehicle_id=row.vehicle.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -78,12 +86,10 @@
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="btn small ghost" type="submit">重置链接</button>
                 </form>
-              </td>
-            </tr>
+              </div>
+            </article>
           {% endfor %}
-          <tr class="filter-empty" data-filter-empty hidden><td colspan="9">没有符合条件的会员</td></tr>
-          </tbody>
-        </table>
+          <div class="filter-empty card-empty" data-filter-empty hidden>没有符合条件的会员</div>
       </div>
       {% else %}
         <div class="empty"><strong>还没有会员</strong><p>点击“添加会员”，录入名称、分类、编号和2FA密钥。</p></div>
@@ -112,4 +118,3 @@
   </form>
 </dialog>
 {% endblock %}
-

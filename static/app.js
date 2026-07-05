@@ -2,6 +2,35 @@ function spaced(code) {
   return code && code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
 }
 
+const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+
+function applyTheme(preference) {
+  const dark = preference === "dark" || (preference === "system" && themeMedia.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.documentElement.dataset.themePreference = preference;
+  document.querySelectorAll("[data-theme-value]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.themeValue === preference);
+  });
+  const label = document.querySelector("[data-theme-label]");
+  const icon = document.querySelector("[data-theme-icon]");
+  if (label) label.textContent = { light: "浅色", dark: "深色", system: "跟随系统" }[preference];
+  if (icon) icon.textContent = { light: "☀", dark: "☾", system: "▣" }[preference];
+}
+
+const savedTheme = localStorage.getItem("theme") || "system";
+applyTheme(savedTheme);
+document.querySelectorAll("[data-theme-value]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const preference = button.dataset.themeValue;
+    localStorage.setItem("theme", preference);
+    applyTheme(preference);
+    button.closest("details").removeAttribute("open");
+  });
+});
+themeMedia.addEventListener("change", () => {
+  if ((localStorage.getItem("theme") || "system") === "system") applyTheme("system");
+});
+
 async function copyText(value, button) {
   await navigator.clipboard.writeText(value);
   const original = button.textContent;

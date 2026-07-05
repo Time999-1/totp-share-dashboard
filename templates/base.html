@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <title>{% block title %}车友 2FA 验证码{% endblock %}</title>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -12,4 +13,3 @@
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>
 </html>
-

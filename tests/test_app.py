@@ -40,7 +40,11 @@ def test_login_and_admin_page():
         assert response.status_code == 302
         page = client.get("/admin")
         assert page.status_code == 200
-        assert "搜索名称、编号或账号" in page.get_data(as_text=True)
+        html = page.get_data(as_text=True)
+        assert "搜索名称、编号或账号" in html
+        assert 'data-theme-value="light"' in html
+        assert 'data-theme-value="dark"' in html
+        assert 'data-theme-value="system"' in html
         assert client.get("/login").headers["Referrer-Policy"] == "same-origin"
     finally:
         os.unlink(path)
@@ -168,6 +172,7 @@ def test_categories_and_membership_fields():
             assert vehicle.expires_at.isoformat() == expiry
             category = Category.query.filter_by(name="ChatGPT").one()
             category_id = category.id
+        assert "member-card" in client.get("/admin").get_data(as_text=True)
         assert client.get(f"/admin/vehicles/{vehicle_id}/edit").status_code == 200
         response = client.post(
             f"/admin/categories/{category_id}/update",
