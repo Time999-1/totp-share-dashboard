@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ vehicle.name }} 验证码{% endblock %}
+{% block body %}
+<main class="share-page" data-share-token="{{ token }}">
+  <section class="share-card">
+    <div class="share-badge">✓ 链接有效</div>
+    <h1>{{ vehicle.name }}</h1>
+    <p class="share-number">编号 {{ vehicle.code }}</p>
+    <div class="share-code" data-share-otp>—— ——</div>
+    <div class="share-countdown"><div><strong data-share-remaining>--</strong><span>秒</span></div></div>
+    <p class="muted">验证码每30秒自动更新</p>
+    <button class="btn primary copy-code" data-copy-code>复制验证码</button>
+    <p class="security-note">请勿将此链接转发给无关人员</p>
+  </section>
+</main>
+{% endblock %}
+

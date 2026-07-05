@@ -1,0 +1,16 @@
+services:
+  totp-dashboard:
+    build: .
+    container_name: totp-share-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8787:8000"
+    volumes:
+      - totp_data:/app/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  totp_data:

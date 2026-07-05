@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}编辑车辆{% endblock %}
+{% block body %}
+<main class="center-page">
+  <section class="form-card">
+    <a class="back-link" href="{{ url_for('admin_dashboard') }}">← 返回管理页</a>
+    <h1>编辑车辆</h1>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    <form method="post" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>车辆名称<input name="name" value="{{ vehicle.name }}" maxlength="80" required></label>
+      <label>编号<input name="code" value="{{ vehicle.code }}" maxlength="20" required></label>
+      <label>更换2FA密钥<input name="secret" placeholder="不修改请留空" autocomplete="off"></label>
+      <p class="hint">现有密钥不会显示。输入新密钥后才会覆盖。</p>
+      <button class="btn primary wide" type="submit">保存修改</button>
+    </form>
+  </section>
+</main>
+{% endblock %}
+

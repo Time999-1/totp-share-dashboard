@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-mark">✓</div>
+    <a class="nav-item active" href="{{ url_for('admin_dashboard') }}">验证码管理</a>
+    <a class="nav-item" href="{{ url_for('access_logs') }}">访问记录</a>
+  </aside>
+  <main class="admin-main">
+    <header class="topbar">
+      <div><h1>车友 2FA 验证码</h1><p>统一管理车辆验证码与专属链接</p></div>
+      <div class="top-actions">
+        <button class="btn primary" data-open-dialog="add-dialog">＋ 添加车辆</button>
+        <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn ghost" type="submit">退出</button>
+        </form>
+      </div>
+    </header>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+
+    <section class="stats-grid">
+      <article class="stat"><span>车辆数量</span><strong>{{ rows|length }}</strong></article>
+      <article class="stat"><span>有效分享</span><strong>{{ active_count }}</strong></article>
+      <article class="stat"><span>今日查看</span><strong>{{ today_views }}</strong></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>车辆列表</h2><span class="muted">验证码每30秒自动更新</span></div>
+      {% if rows %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>名称</th><th>编号</th><th>当前验证码</th><th>剩余时间</th><th>分享链接</th><th>操作</th></tr></thead>
+          <tbody>
+          {% for row in rows %}
+            <tr data-code-row="{{ row.vehicle.id }}">
+              <td><strong>{{ row.vehicle.name }}</strong></td>
+              <td><span class="tag">{{ row.vehicle.code }}</span></td>
+              <td class="otp-cell" data-otp>—— ——</td>
+              <td><div class="countdown"><span data-remaining>--</span>秒</div></td>
+              <td>
+                <button class="btn small copy" data-copy="{{ row.share_url }}">复制链接</button>
+                <span class="status {{ 'on' if row.vehicle.enabled else 'off' }}">{{ '有效' if row.vehicle.enabled else '已停用' }}</span>
+              </td>
+              <td class="row-actions">
+                <a class="btn small ghost" href="{{ url_for('edit_vehicle', vehicle_id=row.vehicle.id) }}">编辑</a>
+                <form method="post" action="{{ url_for('toggle_vehicle', vehicle_id=row.vehicle.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn small {{ 'danger' if row.vehicle.enabled else 'primary' }}" type="submit">{{ '停用' if row.vehicle.enabled else '启用' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('rotate_vehicle', vehicle_id=row.vehicle.id) }}" data-confirm="确认重置链接？旧链接会立即失效。">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn small ghost" type="submit">重置链接</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="empty"><strong>还没有车辆</strong><p>点击“添加车辆”，录入名称、编号和2FA密钥。</p></div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+
+<dialog id="add-dialog" class="modal">
+  <form method="post" action="{{ url_for('create_vehicle') }}" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="modal-head"><div><h2>添加车辆</h2><p>保存后自动生成专属分享链接</p></div><button type="button" class="icon-btn" data-close-dialog>×</button></div>
+    <label>车辆名称<input name="name" placeholder="例如：18车" maxlength="80" required></label>
+    <label>编号<input name="code" placeholder="例如：018" maxlength="20" required></label>
+    <label>2FA密钥<input name="secret" placeholder="输入或粘贴Base32密钥" autocomplete="off" required></label>
+    <p class="hint">密钥会加密保存，不会出现在分享页面。</p>
+    <div class="modal-actions"><button class="btn ghost" type="button" data-close-dialog>取消</button><button class="btn primary" type="submit">保存并生成链接</button></div>
+  </form>
+</dialog>
+{% endblock %}
+

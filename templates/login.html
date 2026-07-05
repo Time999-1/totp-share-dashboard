@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}管理员登录{% endblock %}
+{% block body %}
+<main class="center-page">
+  <section class="login-card">
+    <div class="brand-icon">✓</div>
+    <h1>车友 2FA 验证码</h1>
+    <p class="muted">登录管理车辆与分享链接</p>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    <form method="post" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>管理员账号<input name="username" autocomplete="username" required autofocus></label>
+      <label>密码<input type="password" name="password" autocomplete="current-password" required></label>
+      <button class="btn primary wide" type="submit">登录</button>
+    </form>
+  </section>
+</main>
+{% endblock %}
+
