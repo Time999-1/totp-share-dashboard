@@ -8,7 +8,7 @@ os.environ["ADMIN_PASSWORD"] = "test-admin-password"
 
 import pyotp
 
-from app import Vehicle, create_app, db, decrypt_text, encrypt_text, token_hash
+from app import Admin, Vehicle, create_app, db, decrypt_text, encrypt_text, token_hash
 
 
 def make_app():
@@ -103,5 +103,27 @@ def test_new_share_links_use_compact_tokens():
             token = decrypt_text(vehicle.share_token_cipher)
             assert len(token) == 12
         assert client.get(f"/s/{token}").status_code == 200
+    finally:
+        os.unlink(path)
+
+
+def test_admin_password_can_be_reset_from_cli():
+    app, path = make_app()
+    try:
+        runner = app.test_cli_runner()
+        result = runner.invoke(
+            args=["reset-admin-password"],
+            input="new-test-password-123\nnew-test-password-123\n",
+        )
+        assert result.exit_code == 0
+        assert "管理员密码已更新" in result.output
+        client = app.test_client()
+        response = client.post(
+            "/login",
+            data={"username": "admin", "password": "new-test-password-123"},
+        )
+        assert response.status_code == 302
+        with app.app_context():
+            assert Admin.query.one().username == "admin"
     finally:
         os.unlink(path)

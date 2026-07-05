@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from functools import wraps
 
 import pyotp
+import click
 from cryptography.fernet import Fernet, InvalidToken
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_limiter import Limiter
@@ -89,7 +90,28 @@ def create_app(test_config=None):
             db.session.commit()
 
     register_routes(app)
+    register_cli(app)
     return app
+
+
+def register_cli(app):
+    @app.cli.command("reset-admin-password")
+    @click.option(
+        "--password",
+        prompt="新管理员密码",
+        hide_input=True,
+        confirmation_prompt="再次输入新密码",
+    )
+    def reset_admin_password(password):
+        """安全地重置管理员密码。"""
+        if len(password) < 12:
+            raise click.ClickException("密码至少需要12个字符")
+        admin = Admin.query.first()
+        if not admin:
+            raise click.ClickException("未找到管理员账号")
+        admin.password_hash = generate_password_hash(password)
+        db.session.commit()
+        click.echo("管理员密码已更新")
 
 
 def _fernet():

@@ -20,6 +20,63 @@
 
 > 分享链接相当于第二重验证凭据。仅用于你有权管理的共享账号，不要公开传播。
 
+## 一键部署（推荐）
+
+服务器需要已经安装 Git、Docker、Docker Compose、OpenSSL 和 curl，并使用 `root` 用户执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Time999-1/totp-share-dashboard/main/install.sh -o /tmp/install-totp-dashboard.sh \
+  && bash /tmp/install-totp-dashboard.sh
+```
+
+脚本会自动完成：
+
+- 拉取或更新项目到 `/opt/totp-share-dashboard`
+- 首次安装时生成管理员密码和两个随机安全密钥
+- 保留已有 `.env`、数据库和加密密钥
+- 构建并启动 Docker Compose
+- 等待并检查 `/health`
+
+部署完成后，脚本不会直接显示密码。查看首次安装生成的管理员密码：
+
+```bash
+sudo cat /root/totp-share-dashboard-admin-password.txt
+```
+
+管理员账号默认为 `admin`。记录密码后建议删除明文密码文件：
+
+```bash
+sudo rm -f /root/totp-share-dashboard-admin-password.txt
+```
+
+然后在 1Panel 创建反向代理，目标填写：
+
+```text
+http://127.0.0.1:8787
+```
+
+绑定域名并开启 HTTPS 后，通过 `https://你的域名/login` 登录。
+
+### 修改或忘记管理员密码
+
+网站首次启动后，管理员密码已经加密写入数据库。此时只修改 `.env` 中的 `ADMIN_PASSWORD` **不会生效**。请执行：
+
+```bash
+cd /opt/totp-share-dashboard
+docker compose exec totp-dashboard flask --app app reset-admin-password
+```
+
+根据提示输入两遍新密码。输入过程不会显示字符，密码至少需要 12 位。修改后无需重启容器。
+
+### 一键更新
+
+重新执行一键部署命令即可。脚本会执行 `git pull` 和重新构建，同时保留 `.env` 与数据库：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Time999-1/totp-share-dashboard/main/install.sh -o /tmp/install-totp-dashboard.sh \
+  && bash /tmp/install-totp-dashboard.sh
+```
+
 ## 推荐部署：SSH 启动 + 1Panel 反向代理
 
 以下方式已经实际验证。SSH 负责启动 Docker Compose，1Panel 只负责域名、反向代理和 HTTPS。不要再在 1Panel 中重复创建同一个 Compose 编排。
