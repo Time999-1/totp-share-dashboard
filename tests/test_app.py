@@ -45,6 +45,7 @@ def test_login_and_admin_page():
         assert 'data-theme-value="light"' in html
         assert 'data-theme-value="dark"' in html
         assert 'data-theme-value="system"' in html
+        assert html.count('class="stat-icon"') == 4
         assert client.get("/login").headers["Referrer-Policy"] == "same-origin"
     finally:
         os.unlink(path)
