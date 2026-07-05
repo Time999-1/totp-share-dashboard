@@ -5,7 +5,7 @@
 > 仅用于你有权管理的共享账号或服务账号。分享链接本身属于敏感凭据，请勿公开传播。
 
 ## 界面预览
-![浅色管理界面](docs/dashboard-ui-preview.png)
+![浅色管理界面](docs/ui-preview.png)
 ### 深色模式
 
 ![深色管理界面](docs/dashboard-dark.png)
