@@ -4,9 +4,15 @@
 
 > 仅用于你有权管理的共享账号或服务账号。分享链接本身属于敏感凭据，请勿公开传播。
 
-| 浅色模式 | 深色模式 |
-| --- | --- |
-| ![浅色管理界面](docs/dashboard-light.png) | ![深色管理界面](docs/dashboard-dark.png) |
+## 界面预览
+
+### 深色模式
+
+![深色管理界面](docs/dashboard-dark.png)
+
+### 浅色模式
+
+![浅色管理界面](docs/dashboard-light.png)
 
 ## 主要功能
 
