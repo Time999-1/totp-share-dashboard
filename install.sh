@@ -29,6 +29,8 @@ fi
 
 cd "${INSTALL_DIR}"
 
+install -m 755 "${INSTALL_DIR}/manage.sh" /usr/local/bin/totp-dashboard
+
 if [[ ! -f .env ]]; then
   info "正在生成安全配置……"
   umask 077
@@ -78,4 +80,4 @@ if [[ -f "${PASSWORD_FILE}" ]]; then
   printf '查看初始密码: sudo cat %s\n' "${PASSWORD_FILE}"
 fi
 printf '下一步: 在 1Panel 创建反向代理，目标填写 http://127.0.0.1:8787，并启用 HTTPS。\n'
-
+printf '管理命令: sudo totp-dashboard help\n'
