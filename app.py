@@ -19,6 +19,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 db = SQLAlchemy()
 csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, default_limits=["300 per minute"])
+SHARE_TOKEN_BYTES = 9  # 72 bits, encoded as a compact 12-character URL-safe token.
 
 
 class Admin(db.Model):
@@ -116,6 +117,10 @@ def decrypt_text(value):
 
 def token_hash(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_share_token():
+    return secrets.token_urlsafe(SHARE_TOKEN_BYTES)
 
 
 def normalize_secret(value):
@@ -226,7 +231,7 @@ def register_routes(app):
                 raise ValueError("名称和编号不能为空")
             if Vehicle.query.filter_by(code=code).first():
                 raise ValueError("编号已经存在")
-            token = secrets.token_urlsafe(32)
+            token = generate_share_token()
             db.session.add(
                 Vehicle(
                     name=name,
@@ -282,7 +287,7 @@ def register_routes(app):
     @admin_required
     def rotate_vehicle(vehicle_id):
         vehicle = db.get_or_404(Vehicle, vehicle_id)
-        token = secrets.token_urlsafe(32)
+        token = generate_share_token()
         vehicle.share_token_cipher = encrypt_text(token)
         vehicle.share_token_hash = token_hash(token)
         vehicle.enabled = True
@@ -308,7 +313,8 @@ def register_routes(app):
         return jsonify(data)
 
     def find_shared_vehicle(token):
-        if len(token) < 24:
+        # Accept both the new compact tokens and existing longer tokens.
+        if len(token) < 12:
             abort(404)
         vehicle = Vehicle.query.filter_by(share_token_hash=token_hash(token), enabled=True).first()
         if not vehicle:

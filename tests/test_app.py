@@ -8,7 +8,7 @@ os.environ["ADMIN_PASSWORD"] = "test-admin-password"
 
 import pyotp
 
-from app import Vehicle, create_app, db, encrypt_text, token_hash
+from app import Vehicle, create_app, db, decrypt_text, encrypt_text, token_hash
 
 
 def make_app():
@@ -84,5 +84,24 @@ def test_create_vehicle_rejects_invalid_secret():
         assert "保存失败" in response.get_data(as_text=True)
         with app.app_context():
             assert Vehicle.query.count() == 0
+    finally:
+        os.unlink(path)
+
+
+def test_new_share_links_use_compact_tokens():
+    app, path = make_app()
+    try:
+        client = app.test_client()
+        login(client)
+        response = client.post(
+            "/admin/vehicles",
+            data={"name": "2车", "code": "002", "secret": pyotp.random_base32()},
+        )
+        assert response.status_code == 302
+        with app.app_context():
+            vehicle = Vehicle.query.filter_by(code="002").one()
+            token = decrypt_text(vehicle.share_token_cipher)
+            assert len(token) == 12
+        assert client.get(f"/s/{token}").status_code == 200
     finally:
         os.unlink(path)
