@@ -45,6 +45,36 @@ if (adminRows.length) {
   setInterval(refreshAdminCodes, 1000);
 }
 
+const memberFilters = document.querySelector("[data-member-filters]");
+if (memberFilters) {
+  const search = memberFilters.querySelector("[data-member-search]");
+  const category = memberFilters.querySelector("[data-category-filter]");
+  const status = memberFilters.querySelector("[data-status-filter]");
+  const visibleCount = memberFilters.querySelector("[data-visible-count]");
+  const rows = [...document.querySelectorAll("[data-member-row]")];
+  const emptyRow = document.querySelector("[data-filter-empty]");
+
+  function applyMemberFilters() {
+    const query = search.value.trim().toLowerCase();
+    let visible = 0;
+    rows.forEach((row) => {
+      const haystack = `${row.dataset.name} ${row.dataset.code} ${row.dataset.account}`;
+      const matchesSearch = !query || haystack.includes(query);
+      const matchesCategory = !category.value || row.dataset.category === category.value;
+      const matchesStatus = !status.value || row.dataset.status === status.value;
+      const show = matchesSearch && matchesCategory && matchesStatus;
+      row.hidden = !show;
+      if (show) visible += 1;
+    });
+    visibleCount.textContent = visible;
+    if (emptyRow) emptyRow.hidden = visible !== 0;
+  }
+
+  search.addEventListener("input", applyMemberFilters);
+  category.addEventListener("change", applyMemberFilters);
+  status.addEventListener("change", applyMemberFilters);
+}
+
 const sharePage = document.querySelector("[data-share-token]");
 if (sharePage) {
   let rawCode = "";
@@ -69,4 +99,3 @@ if (sharePage) {
   refreshShareCode();
   setInterval(refreshShareCode, 1000);
 }
-

@@ -4,8 +4,8 @@
 <main class="center-page">
   <section class="login-card">
     <div class="brand-icon">✓</div>
-    <h1>车友 2FA 验证码</h1>
-    <p class="muted">登录管理车辆与分享链接</p>
+    <h1>2FA 会员管理</h1>
+    <p class="muted">登录管理会员与分享链接</p>
     {% for category, message in get_flashed_messages(with_categories=true) %}
       <div class="flash {{ category }}">{{ message }}</div>
     {% endfor %}
@@ -18,4 +18,3 @@
   </section>
 </main>
 {% endblock %}
-

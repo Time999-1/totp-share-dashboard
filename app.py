@@ -3,7 +3,7 @@ import hashlib
 import os
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from functools import wraps
 
 import pyotp
@@ -14,6 +14,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
+from sqlalchemy import inspect, text
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -33,10 +34,21 @@ class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), nullable=False)
     code = db.Column(db.String(20), unique=True, nullable=False)
+    category = db.Column(db.String(80), default="未分类", nullable=False)
+    account = db.Column(db.String(160), default="", nullable=False)
+    expires_at = db.Column(db.Date, nullable=True)
+    notes = db.Column(db.Text, default="", nullable=False)
     secret_cipher = db.Column(db.Text, nullable=False)
     share_token_cipher = db.Column(db.Text, nullable=False)
     share_token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
     enabled = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    color = db.Column(db.String(20), default="green", nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
@@ -80,6 +92,8 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
+        migrate_schema()
+        sync_categories()
         if not Admin.query.first():
             db.session.add(
                 Admin(
@@ -92,6 +106,30 @@ def create_app(test_config=None):
     register_routes(app)
     register_cli(app)
     return app
+
+
+def migrate_schema():
+    """Add new membership columns to databases created by earlier releases."""
+    columns = {column["name"] for column in inspect(db.engine).get_columns("vehicle")}
+    migrations = {
+        "category": "ALTER TABLE vehicle ADD COLUMN category VARCHAR(80) NOT NULL DEFAULT '未分类'",
+        "account": "ALTER TABLE vehicle ADD COLUMN account VARCHAR(160) NOT NULL DEFAULT ''",
+        "expires_at": "ALTER TABLE vehicle ADD COLUMN expires_at DATE",
+        "notes": "ALTER TABLE vehicle ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
+    }
+    with db.engine.begin() as connection:
+        for column_name, statement in migrations.items():
+            if column_name not in columns:
+                connection.execute(text(statement))
+
+
+def sync_categories():
+    names = {"未分类"}
+    names.update(value[0] for value in db.session.query(Vehicle.category).distinct().all() if value[0])
+    existing = {category.name for category in Category.query.all()}
+    for name in sorted(names - existing):
+        db.session.add(Category(name=name, color="gray" if name == "未分类" else "green"))
+    db.session.commit()
 
 
 def register_cli(app):
@@ -159,6 +197,24 @@ def current_totp(vehicle):
     }
 
 
+def parse_expiry(value):
+    value = value.strip()
+    return date.fromisoformat(value) if value else None
+
+
+def member_status(vehicle):
+    if not vehicle.enabled:
+        return {"label": "已停用", "kind": "off"}
+    if not vehicle.expires_at:
+        return {"label": "长期", "kind": "neutral"}
+    remaining = (vehicle.expires_at - date.today()).days
+    if remaining < 0:
+        return {"label": "已过期", "kind": "expired"}
+    if remaining <= 7:
+        return {"label": f"{remaining}天到期", "kind": "warning"}
+    return {"label": "正常", "kind": "on"}
+
+
 def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -224,6 +280,8 @@ def register_routes(app):
     @admin_required
     def admin_dashboard():
         vehicles = Vehicle.query.order_by(Vehicle.code.asc()).all()
+        categories = Category.query.order_by(Category.name.asc()).all()
+        category_colors = {category.name: category.color for category in categories}
         rows = []
         for vehicle in vehicles:
             token = decrypt_text(vehicle.share_token_cipher)
@@ -231,6 +289,8 @@ def register_routes(app):
                 {
                     "vehicle": vehicle,
                     "share_url": url_for("share_page", token=token, _external=True),
+                    "status": member_status(vehicle),
+                    "category_color": category_colors.get(vehicle.category, "gray"),
                 }
             )
         today = datetime.now(timezone.utc).date()
@@ -240,6 +300,12 @@ def register_routes(app):
             rows=rows,
             active_count=Vehicle.query.filter_by(enabled=True).count(),
             today_views=today_views,
+            expiring_count=sum(
+                1
+                for vehicle in vehicles
+                if vehicle.expires_at and 0 <= (vehicle.expires_at - date.today()).days <= 7
+            ),
+            categories=categories,
         )
 
     @app.post("/admin/vehicles")
@@ -247,24 +313,31 @@ def register_routes(app):
     def create_vehicle():
         name = request.form.get("name", "").strip()
         code = request.form.get("code", "").strip()
+        category = request.form.get("category", "未分类").strip() or "未分类"
         try:
             secret = normalize_secret(request.form.get("secret", ""))
             if not name or not code:
                 raise ValueError("名称和编号不能为空")
             if Vehicle.query.filter_by(code=code).first():
                 raise ValueError("编号已经存在")
+            if not Category.query.filter_by(name=category).first():
+                raise ValueError("请选择有效分类")
             token = generate_share_token()
             db.session.add(
                 Vehicle(
                     name=name,
                     code=code,
+                    category=category,
+                    account=request.form.get("account", "").strip(),
+                    expires_at=parse_expiry(request.form.get("expires_at", "")),
+                    notes=request.form.get("notes", "").strip(),
                     secret_cipher=encrypt_text(secret),
                     share_token_cipher=encrypt_text(token),
                     share_token_hash=token_hash(token),
                 )
             )
             db.session.commit()
-            flash("车辆已添加，专属链接已生成", "success")
+            flash("会员已添加，专属链接已生成", "success")
         except Exception as exc:
             db.session.rollback()
             flash(f"保存失败：{exc}", "error")
@@ -277,6 +350,7 @@ def register_routes(app):
         if request.method == "POST":
             name = request.form.get("name", "").strip()
             code = request.form.get("code", "").strip()
+            category = request.form.get("category", "未分类").strip() or "未分类"
             new_secret = request.form.get("secret", "").strip()
             try:
                 if not name or not code:
@@ -284,8 +358,14 @@ def register_routes(app):
                 conflict = Vehicle.query.filter(Vehicle.code == code, Vehicle.id != vehicle.id).first()
                 if conflict:
                     raise ValueError("编号已经存在")
+                if not Category.query.filter_by(name=category).first():
+                    raise ValueError("请选择有效分类")
                 vehicle.name = name
                 vehicle.code = code
+                vehicle.category = category
+                vehicle.account = request.form.get("account", "").strip()
+                vehicle.expires_at = parse_expiry(request.form.get("expires_at", ""))
+                vehicle.notes = request.form.get("notes", "").strip()
                 if new_secret:
                     vehicle.secret_cipher = encrypt_text(normalize_secret(new_secret))
                 db.session.commit()
@@ -294,7 +374,73 @@ def register_routes(app):
             except Exception as exc:
                 db.session.rollback()
                 flash(f"保存失败：{exc}", "error")
-        return render_template("edit.html", vehicle=vehicle)
+        categories = Category.query.order_by(Category.name.asc()).all()
+        return render_template("edit.html", vehicle=vehicle, categories=categories)
+
+    @app.route("/admin/categories", methods=["GET", "POST"])
+    @admin_required
+    def manage_categories():
+        allowed_colors = {"green", "blue", "orange", "purple", "gray"}
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            color = request.form.get("color", "green")
+            try:
+                if not name:
+                    raise ValueError("分类名称不能为空")
+                if Category.query.filter_by(name=name).first():
+                    raise ValueError("分类已经存在")
+                if color not in allowed_colors:
+                    color = "green"
+                db.session.add(Category(name=name, color=color))
+                db.session.commit()
+                flash("分类已添加", "success")
+            except Exception as exc:
+                db.session.rollback()
+                flash(f"保存失败：{exc}", "error")
+            return redirect(url_for("manage_categories"))
+        categories = Category.query.order_by(Category.name.asc()).all()
+        counts = dict(db.session.query(Vehicle.category, db.func.count(Vehicle.id)).group_by(Vehicle.category))
+        return render_template("categories.html", categories=categories, counts=counts)
+
+    @app.post("/admin/categories/<int:category_id>/update")
+    @admin_required
+    def update_category(category_id):
+        category = db.get_or_404(Category, category_id)
+        old_name = category.name
+        new_name = request.form.get("name", "").strip()
+        color = request.form.get("color", "green")
+        try:
+            if old_name == "未分类" and new_name != "未分类":
+                raise ValueError("默认分类不能重命名")
+            if not new_name:
+                raise ValueError("分类名称不能为空")
+            conflict = Category.query.filter(Category.name == new_name, Category.id != category.id).first()
+            if conflict:
+                raise ValueError("分类名称已经存在")
+            if color not in {"green", "blue", "orange", "purple", "gray"}:
+                color = "green"
+            category.name = new_name
+            category.color = color
+            Vehicle.query.filter_by(category=old_name).update({"category": new_name})
+            db.session.commit()
+            flash("分类已更新", "success")
+        except Exception as exc:
+            db.session.rollback()
+            flash(f"更新失败：{exc}", "error")
+        return redirect(url_for("manage_categories"))
+
+    @app.post("/admin/categories/<int:category_id>/delete")
+    @admin_required
+    def delete_category(category_id):
+        category = db.get_or_404(Category, category_id)
+        if category.name == "未分类":
+            flash("默认分类不能删除", "error")
+        else:
+            Vehicle.query.filter_by(category=category.name).update({"category": "未分类"})
+            db.session.delete(category)
+            db.session.commit()
+            flash("分类已删除，相关会员已移至未分类", "success")
+        return redirect(url_for("manage_categories"))
 
     @app.post("/admin/vehicles/<int:vehicle_id>/toggle")
     @admin_required

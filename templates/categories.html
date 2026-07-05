@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}分类管理{% endblock %}
+{% block body %}
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-mark">✓</div>
+    <a class="nav-item" href="{{ url_for('admin_dashboard') }}">会员管理</a>
+    <a class="nav-item active" href="{{ url_for('manage_categories') }}">分类管理</a>
+    <a class="nav-item" href="{{ url_for('access_logs') }}">访问记录</a>
+  </aside>
+  <main class="admin-main categories-main">
+    <header class="topbar"><div><h1>分类管理</h1><p>为不同平台和会员类型建立分类</p></div><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">返回会员管理</a></header>
+    {% for category, message in get_flashed_messages(with_categories=true) %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+    <section class="panel category-create">
+      <div class="panel-head"><h2>添加分类</h2></div>
+      <form method="post" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input name="name" placeholder="例如：亚马逊 TV 会员、ChatGPT" maxlength="80" required>
+        <select name="color"><option value="green">绿色</option><option value="blue">蓝色</option><option value="orange">橙色</option><option value="purple">紫色</option><option value="gray">灰色</option></select>
+        <button class="btn primary" type="submit">添加分类</button>
+      </form>
+    </section>
+    <section class="panel category-list">
+      <div class="panel-head"><h2>现有分类</h2><span class="muted">删除分类后，相关会员会移至“未分类”</span></div>
+      {% for category in categories %}
+      <div class="category-row">
+        <form method="post" action="{{ url_for('update_category', category_id=category.id) }}" class="inline-form grow">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <span class="category-badge {{ category.color }}">{{ category.name }}</span>
+          <input name="name" value="{{ category.name }}" maxlength="80" {{ 'readonly' if category.name == '未分类' else '' }} required>
+          <select name="color">{% for value,label in [('green','绿色'),('blue','蓝色'),('orange','橙色'),('purple','紫色'),('gray','灰色')] %}<option value="{{ value }}" {{ 'selected' if value == category.color else '' }}>{{ label }}</option>{% endfor %}</select>
+          <span class="category-count">{{ counts.get(category.name, 0) }} 位会员</span>
+          <button class="btn small ghost" type="submit">保存</button>
+        </form>
+        {% if category.name != '未分类' %}<form method="post" action="{{ url_for('delete_category', category_id=category.id) }}" data-confirm="确认删除此分类？相关会员会移至未分类。"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn small danger" type="submit">删除</button></form>{% endif %}
+      </div>
+      {% endfor %}
+    </section>
+  </main>
+</div>
+{% endblock %}
+

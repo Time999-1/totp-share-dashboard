@@ -3,14 +3,16 @@
 <div class="app-shell">
   <aside class="sidebar">
     <div class="sidebar-mark">✓</div>
-    <a class="nav-item active" href="{{ url_for('admin_dashboard') }}">验证码管理</a>
+    <a class="nav-item active" href="{{ url_for('admin_dashboard') }}">会员管理</a>
+    <a class="nav-item" href="{{ url_for('manage_categories') }}">分类管理</a>
     <a class="nav-item" href="{{ url_for('access_logs') }}">访问记录</a>
   </aside>
   <main class="admin-main">
     <header class="topbar">
-      <div><h1>车友 2FA 验证码</h1><p>统一管理车辆验证码与专属链接</p></div>
+      <div><h1>2FA 会员管理</h1><p>统一管理会员、验证码与专属分享链接</p></div>
       <div class="top-actions">
-        <button class="btn primary" data-open-dialog="add-dialog">＋ 添加车辆</button>
+        <a class="btn ghost" href="{{ url_for('manage_categories') }}">分类管理</a>
+        <button class="btn primary" data-open-dialog="add-dialog">＋ 添加会员</button>
         <form method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn ghost" type="submit">退出</button>
@@ -22,25 +24,46 @@
       <div class="flash {{ category }}">{{ message }}</div>
     {% endfor %}
 
-    <section class="stats-grid">
-      <article class="stat"><span>车辆数量</span><strong>{{ rows|length }}</strong></article>
+    <section class="stats-grid four">
+      <article class="stat"><span>会员数量</span><strong>{{ rows|length }}</strong></article>
       <article class="stat"><span>有效分享</span><strong>{{ active_count }}</strong></article>
+      <article class="stat"><span>7天内到期</span><strong>{{ expiring_count }}</strong></article>
       <article class="stat"><span>今日查看</span><strong>{{ today_views }}</strong></article>
     </section>
 
+    <section class="filter-bar" data-member-filters>
+      <label class="search-field"><span>⌕</span><input type="search" placeholder="搜索名称、编号或账号" data-member-search></label>
+      <select data-category-filter aria-label="按分类筛选">
+        <option value="">全部分类</option>
+        {% for category in categories %}<option value="{{ category.name }}">{{ category.name }}</option>{% endfor %}
+      </select>
+      <select data-status-filter aria-label="按状态筛选">
+        <option value="">全部状态</option>
+        <option value="on">正常</option>
+        <option value="warning">即将到期</option>
+        <option value="expired">已过期</option>
+        <option value="neutral">长期</option>
+        <option value="off">已停用</option>
+      </select>
+      <span class="filter-result">显示 <strong data-visible-count>{{ rows|length }}</strong> 条</span>
+    </section>
+
     <section class="panel">
-      <div class="panel-head"><h2>车辆列表</h2><span class="muted">验证码每30秒自动更新</span></div>
+      <div class="panel-head"><h2>会员列表</h2><span class="muted">验证码每30秒自动更新</span></div>
       {% if rows %}
       <div class="table-wrap">
-        <table>
-          <thead><tr><th>名称</th><th>编号</th><th>当前验证码</th><th>剩余时间</th><th>分享链接</th><th>操作</th></tr></thead>
+        <table class="member-table">
+          <thead><tr><th>名称</th><th>分类</th><th>编号</th><th>登录账号</th><th>验证码</th><th>剩余</th><th>会员状态</th><th>分享链接</th><th>操作</th></tr></thead>
           <tbody>
           {% for row in rows %}
-            <tr data-code-row="{{ row.vehicle.id }}">
+            <tr data-code-row="{{ row.vehicle.id }}" data-member-row data-name="{{ row.vehicle.name|lower }}" data-code="{{ row.vehicle.code|lower }}" data-account="{{ row.vehicle.account|lower }}" data-category="{{ row.vehicle.category }}" data-status="{{ row.status.kind }}">
               <td><strong>{{ row.vehicle.name }}</strong></td>
+              <td><span class="category-badge {{ row.category_color }}">{{ row.vehicle.category }}</span></td>
               <td><span class="tag">{{ row.vehicle.code }}</span></td>
+              <td class="account-cell" title="{{ row.vehicle.account }}">{{ row.vehicle.account or '—' }}</td>
               <td class="otp-cell" data-otp>—— ——</td>
               <td><div class="countdown"><span data-remaining>--</span>秒</div></td>
+              <td><span class="member-status {{ row.status.kind }}">{{ row.status.label }}</span>{% if row.vehicle.expires_at %}<small class="expiry-date">{{ row.vehicle.expires_at }}</small>{% endif %}</td>
               <td>
                 <button class="btn small copy" data-copy="{{ row.share_url }}">复制链接</button>
                 <span class="status {{ 'on' if row.vehicle.enabled else 'off' }}">{{ '有效' if row.vehicle.enabled else '已停用' }}</span>
@@ -58,11 +81,12 @@
               </td>
             </tr>
           {% endfor %}
+          <tr class="filter-empty" data-filter-empty hidden><td colspan="9">没有符合条件的会员</td></tr>
           </tbody>
         </table>
       </div>
       {% else %}
-        <div class="empty"><strong>还没有车辆</strong><p>点击“添加车辆”，录入名称、编号和2FA密钥。</p></div>
+        <div class="empty"><strong>还没有会员</strong><p>点击“添加会员”，录入名称、分类、编号和2FA密钥。</p></div>
       {% endif %}
     </section>
   </main>
@@ -71,11 +95,19 @@
 <dialog id="add-dialog" class="modal">
   <form method="post" action="{{ url_for('create_vehicle') }}" class="stack-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="modal-head"><div><h2>添加车辆</h2><p>保存后自动生成专属分享链接</p></div><button type="button" class="icon-btn" data-close-dialog>×</button></div>
-    <label>车辆名称<input name="name" placeholder="例如：18车" maxlength="80" required></label>
-    <label>编号<input name="code" placeholder="例如：018" maxlength="20" required></label>
-    <label>2FA密钥<input name="secret" placeholder="输入或粘贴Base32密钥" autocomplete="off" required></label>
-    <p class="hint">密钥会加密保存，不会出现在分享页面。</p>
+    <div class="modal-head"><div><h2>添加会员</h2><p>保存后自动生成专属分享链接</p></div><button type="button" class="icon-btn" data-close-dialog>×</button></div>
+    <div class="form-grid">
+      <label>会员名称<input name="name" placeholder="例如：亚马逊 TV 会员" maxlength="80" required></label>
+      <label>编号<input name="code" placeholder="例如：001" maxlength="20" required></label>
+    </div>
+    <label>分类<select name="category" required>{% for category in categories %}<option value="{{ category.name }}">{{ category.name }}</option>{% endfor %}</select></label>
+    <label>登录账号（可选）<input name="account" placeholder="邮箱、用户名或会员账号" maxlength="160" autocomplete="off"></label>
+    <div class="form-grid">
+      <label>到期时间（可选）<input type="date" name="expires_at"></label>
+      <label>2FA密钥<input name="secret" placeholder="Base32密钥" autocomplete="off" required></label>
+    </div>
+    <label>备注（可选）<textarea name="notes" rows="3" maxlength="1000" placeholder="仅管理员可见"></textarea></label>
+    <p class="hint">分享页面只显示名称、编号和验证码，不显示账号、备注或原始密钥。</p>
     <div class="modal-actions"><button class="btn ghost" type="button" data-close-dialog>取消</button><button class="btn primary" type="submit">保存并生成链接</button></div>
   </form>
 </dialog>

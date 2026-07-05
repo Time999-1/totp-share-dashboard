@@ -5,10 +5,9 @@
   <header class="topbar"><div><a class="back-link" href="{{ url_for('admin_dashboard') }}">← 返回管理页</a><h1>访问记录</h1><p>最近300次分享页面访问</p></div></header>
   <section class="panel">
     <div class="table-wrap"><table>
-      <thead><tr><th>时间（UTC）</th><th>车辆</th><th>编号</th><th>IP</th><th>设备</th></tr></thead>
+      <thead><tr><th>时间（UTC）</th><th>会员</th><th>编号</th><th>IP</th><th>设备</th></tr></thead>
       <tbody>{% for log in logs %}<tr><td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ log.vehicle.name }}</td><td>{{ log.vehicle.code }}</td><td>{{ log.ip_address }}</td><td class="ua">{{ log.user_agent }}</td></tr>{% else %}<tr><td colspan="5" class="empty">暂无访问记录</td></tr>{% endfor %}</tbody>
     </table></div>
   </section>
 </main>
 {% endblock %}
-
