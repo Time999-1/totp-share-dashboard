@@ -8,7 +8,7 @@
 
 安装前可以先体验纯浏览器演示版：
 
-**[打开在线演示](https://time999-1.github.io/totp-share-dashboard/)**
+**[打开在线演示](https://newszx.github.io/totp-share-dashboard/)**
 
 ```text
 账号：admin
